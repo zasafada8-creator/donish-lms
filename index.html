@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tg">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Дониш — платформаи омӯзишӣ</title>
+<style>
+:root{--bg:#f5f7fb;--ink:#142033;--muted:#667085;--brand:#166534;--brand2:#15803d;--card:#fff;--line:#e5e7eb}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}header{background:#123524;color:white;padding:20px 16px}header h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:#d1fae5}.wrap{max-width:980px;margin:auto;padding:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 4px 16px #1018280a}input,button{font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);width:100%;margin:6px 0}button{background:var(--brand);color:white;border:0;font-weight:650;cursor:pointer}button.secondary{background:#e8f2ec;color:#123524}button:disabled{opacity:.5}small,.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.course{border:1px solid var(--line);border-radius:14px;padding:14px}.course h3{margin-top:0}.row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1;min-width:120px}.hidden{display:none}.notice{padding:12px;border-radius:10px;background:#eef7f0;color:#164b2b;margin:10px 0}.err{background:#fff0f0;color:#8a1c1c}.badge{font-size:12px;background:#e8f2ec;color:#166534;border-radius:30px;padding:4px 8px}footer{text-align:center;padding:25px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><h1>Дониш</h1><p>Платформаи омӯзиши онлайн</p></header>
+<div class="wrap">
+<div class="card" id="setup"><h2>Пайваст кардани Supabase</h2><p class="muted">Project URL ва Publishable / anon key-и Supabase-ро ворид кунед. Калиди Service Role-ро истифода накунед.</p><input id="url" placeholder="https://xxxx.supabase.co"><input id="key" placeholder="Publishable key / anon key"><button id="connect">Пайваст кардан</button><small>Ин маълумот танҳо дар браузери ҳамин дастгоҳ нигоҳ дошта мешавад.</small></div>
+<div id="message" aria-live="polite"></div>
+<div class="card hidden" id="auth"><h2 id="authTitle">Воридшавӣ</h2><input id="name" placeholder="Номи пурра (барои бақайдгирӣ)" class="hidden"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Парол"><div class="row"><button id="login">Ворид шудан</button><button id="signup" class="secondary">Бақайдгирӣ</button></div><button id="logout" class="secondary hidden">Баромадан</button><p id="userInfo" class="muted"></p></div>
+<div class="card"><h2>Курсҳо</h2><p class="muted">Курсҳои нашршуда.</p><button id="refresh" class="secondary">Нав кардани рӯйхат</button><div id="courses" class="grid"></div></div>
+<div class="card"><h2>Курсҳои ман</h2><div id="mine" class="grid"></div></div>
+</div><footer>Donish LMS · Версияи ибтидоӣ</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+let sb=null, user=null;
+const $=id=>document.getElementById(id);
+function msg(t,err=false){$('message').innerHTML=t?`<div class="notice ${err?'err':''}">${t}</div>`:''}
+function saved(){try{return {url:localStorage.getItem('donish_url')||'',key:localStorage.getItem('donish_key')||''}}catch{return {url:'',key:''}}}
+function init(url,key){sb=window.supabase.createClient(url,key);$('setup').classList.add('hidden');$('auth').classList.remove('hidden');refreshAuth();loadCourses()}
+const s=saved();$('url').value=s.url;$('key').value=s.key;if(s.url&&s.key)init(s.url,s.key);
+$('connect').onclick=()=>{let u=$('url').value.trim(),k=$('key').value.trim();if(!u||!k)return msg('URL ва key-ро пур кунед.',true);try{localStorage.setItem('donish_url',u);localStorage.setItem('donish_key',k)}catch{}init(u,k);msg('Пайвастшавӣ омода шуд.');};
+async function refreshAuth(){if(!sb)return;let r=await sb.auth.getSession();user=r.data.session?.user||null;$('name').classList.toggle('hidden',true);$('logout').classList.toggle('hidden',!user);$('login').classList.toggle('hidden',!!user);$('signup').classList.toggle('hidden',!!user);$('userInfo').textContent=user?`Ворид шудед: ${user.email}`:'Барои сабтином дар курс ворид шавед.';loadMine()}
+$('signup').onclick=async()=>{if(!sb)return msg('Аввал Supabase-ро пайваст кунед.',true);let n=$('name').value.trim(),e=$('email').value.trim(),p=$('password').value;if(!n||!e||p.length<6){$('name').classList.remove('hidden');return msg('Номи пурра, email ва пароли на кам аз 6 аломатро ворид кунед.',true)}let r=await sb.auth.signUp({email:e,password:p,options:{data:{full_name:n}}});if(r.error)return msg(r.error.message,true);msg('Бақайдгирӣ қабул шуд. Агар тасдиқи email фаъол бошад, почтаи худро тасдиқ кунед.');refreshAuth()};
+$('login').onclick=async()=>{let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(r.error)return msg(r.error.message,true);msg('Воридшавӣ муваффақ шуд.');refreshAuth()};
+$('logout').onclick=async()=>{await sb.auth.signOut();msg('Шумо баромадед.');refreshAuth()};
+$('refresh').onclick=loadCourses;
+async function loadCourses(){if(!sb){$('courses').innerHTML='<p class="muted">Supabase-ро пайваст кунед.</p>';return}let r=await sb.from('courses').select('id,title,description').eq('published',true).order('created_at',{ascending:false});if(r.error){$('courses').innerHTML='';msg('Боркунии курсҳо: '+r.error.message,true);return}let a=r.data||[];$('courses').innerHTML=a.length?a.map(c=>`<article class="course"><span class="badge">Курс</span><h3>${esc(c.title)}</h3><p>${esc(c.description||'Тавсиф ҳоло илова нашудааст.')}</p><button onclick="enroll('${c.id}')">Сабтином дар курс</button></article>`).join(''):'<p class="muted">Ҳоло курсҳои нашршуда нестанд.</p>'}
+async function loadMine(){if(!sb||!user){$('mine').innerHTML='<p class="muted">Пас аз воридшавӣ курсҳои сабтиномшуда намоён мешаванд.</p>';return}let r=await sb.from('enrollments').select('course_id,courses(id,title,description)').eq('student_id',user.id);if(r.error){$('mine').innerHTML='';return}let a=r.data||[];$('mine').innerHTML=a.length?a.map(x=>`<article class="course"><h3>${esc(x.courses?.title||'Курс')}</h3><p>${esc(x.courses?.description||'')}</p><span class="badge">Сабтиномшуда</span></article>`).join(''):'<p class="muted">Шумо ҳанӯз дар курс сабтином нашудаед.</p>'}
+window.enroll=async id=>{if(!user)return msg('Барои сабтином аввал ворид шавед.',true);let r=await sb.from('enrollments').insert({student_id:user.id,course_id:id});if(r.error){msg(r.error.code==='23505'?'Шумо аллакай дар ин курс сабтином шудаед.':r.error.message,true);return}msg('Сабтином дар курс муваффақ шуд.');loadMine()};
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+sb?.auth.onAuthStateChange(()=>refreshAuth());
+</script></body></html>
